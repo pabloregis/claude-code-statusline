@@ -17,7 +17,7 @@ Status line para o Claude Code: projeto e branch, janela de contexto, tempo de s
 Cole isto numa sessão do Claude Code:
 
 ```text
-Instale https://github.com/k8adev/claude-code-statusline como minha status line:
+Instale https://github.com/pabloregis/claude-code-statusline como minha status line:
 clone em ~/.claude/claude-code-statusline, aponte o statusLine do
 ~/.claude/settings.json para o statusline.sh dele e confira se o jq está instalado.
 ```
@@ -25,7 +25,7 @@ clone em ~/.claude/claude-code-statusline, aponte o statusLine do
 ### Manual
 
 ```sh
-git clone https://github.com/k8adev/claude-code-statusline ~/.claude/claude-code-statusline
+git clone https://github.com/pabloregis/claude-code-statusline ~/.claude/claude-code-statusline
 ```
 
 `~/.claude/settings.json`:
