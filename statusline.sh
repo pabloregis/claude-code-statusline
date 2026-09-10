@@ -26,6 +26,13 @@ REMOVED=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
 # Model
 MODEL=$(echo "$input" | jq -r '.model.display_name')
 
+# Claude account/profile
+if [ -n "$CLAUDE_SECURESTORAGE_CONFIG_DIR" ]; then
+  CLAUDE_PROFILE="BACKUP"
+else
+  CLAUDE_PROFILE="MAIN"
+fi
+
 # Context window
 PCT=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
 
@@ -66,6 +73,7 @@ GRAY="$FG"; TERRA="$YELLOW"; TERRA_LIGHT="$ACCENT"
 ICON_DIR="${CLAUDE_STATUSLINE_ICON_DIR:-󰉋}"
 ICON_CLOCK="${CLAUDE_STATUSLINE_ICON_CLOCK:-󰥔}"
 ICON_RESET="${CLAUDE_STATUSLINE_ICON_RESET:-󰑐}"
+ICON_CLAUDE="${CLAUDE_STATUSLINE_ICON_CLAUDE:-󰚩}"
 
 # Usage-limit thresholds: green up to LIMIT_WARN, yellow above it, red above LIMIT_CRIT
 # (50-30-20 split by default; tmux-vitals uses 60/85 via @vitals_warn/@vitals_crit).
@@ -123,6 +131,8 @@ LINE1="${GRAY}${ICON_DIR}${RESET} ${TERRA_LIGHT}${PROJECT}${RESET}"
 [ -n "$GIT_INFO" ] && LINE1="${LINE1} ${COMMENT}(${RESET}${GRAY}${GIT_INFO}${RESET}${COMMENT})${RESET}"
 LINE1="${LINE1} ${GREEN}+${ADDED}${RESET} ${RED}-${REMOVED}${RESET}"
 echo -e "$LINE1"
+# Account
+echo -e "${ACCENT}${ICON_CLAUDE}${RESET} ${GRAY}${CLAUDE_PROFILE}${RESET}"
 
 # Line 2: [model] [context bar + %] [icon] [session duration]
 echo -e "${GRAY}${MODEL}${RESET} ${BAR} ${GRAY}${PCT}%${RESET} ${COMMENT}·${RESET} ${GRAY}${ICON_CLOCK} ${DURATION}${RESET}"
@@ -153,7 +163,11 @@ elif [ -n "$FIVE_HR" ] || [ -n "$SEVEN_DAY" ]; then
   if [ -n "$FIVE_HR" ]; then
     COLOR5="$(level_color "$FIVE_HR")"
     LINE3="${GRAY}5h${RESET} ${COLOR5}${FIVE_HR}%${RESET}"
-    [ -n "$FIVE_HR_RESET" ] && LINE3="${LINE3} ${COMMENT}${ICON_RESET} $(until_epoch "$FIVE_HR_RESET")${RESET}"
+    if [ -n "$FIVE_HR_RESET" ]; then
+      LINE3="${LINE3} ${COMMENT}${ICON_RESET} $(until_epoch "$FIVE_HR_RESET")${RESET}"
+      FIVE_HR_RESET_TIME=$(date -d "@$FIVE_HR_RESET" +%H:%M 2>/dev/null)
+      [ -n "$FIVE_HR_RESET_TIME" ] && LINE3="${LINE3} ${COMMENT}◷ ${FIVE_HR_RESET_TIME}${RESET}"
+    fi
   fi
   if [ -n "$SEVEN_DAY" ]; then
     COLOR7="$(level_color "$SEVEN_DAY")"
