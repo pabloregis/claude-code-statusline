@@ -96,6 +96,18 @@ level_color() {
   fi
 }
 
+# level_color_5h <percent> -> MAGENTA/YELLOW/RED
+level_color_5h() {
+  local percent="${1:-0}"
+  if ((percent > LIMIT_CRIT)); then
+    echo "$RED"
+  elif ((percent > LIMIT_WARN)); then
+    echo "$YELLOW"
+  else
+    echo "$MAGENTA"
+  fi
+}
+
 # until_epoch <epoch> -> "4d 3h" | "4h26" (mirrors tmux-vitals' scripts/vitals.sh until_epoch)
 until_epoch() {
   local target="$1" now secs
@@ -134,10 +146,11 @@ echo -e "$LINE1"
 # Account
 echo -e "${ACCENT}${ICON_CLAUDE}${RESET} ${GRAY}${CLAUDE_PROFILE}${RESET}"
 
-# Line 2: [model] [context bar + %] [icon] [session duration]
-echo -e "${GRAY}${MODEL}${RESET} ${BAR} ${GRAY}${PCT}%${RESET} ${COMMENT}·${RESET} ${GRAY}${ICON_CLOCK} ${DURATION}${RESET}"
+# Line 2: [model] [context bar + label + %] [icon] [session duration]
+MODEL_LINE="${GRAY}${MODEL}${RESET} ${COMMENT}·${RESET} ${COMMENT}ctx${RESET} ${BAR} ${GRAY}${PCT}%${RESET} ${COMMENT}·${RESET} ${GRAY}${ICON_CLOCK} ${DURATION}${RESET}"
+echo -e "$MODEL_LINE"
 
-# Line 3 visibility: CLAUDE_STATUSLINE_LIMITS = auto (default) | always | never.
+# Line 3/4 visibility: CLAUDE_STATUSLINE_LIMITS = auto (default) | always | never.
 # "auto" hides the limits when this session runs inside tmux AND tmux-vitals' Claude segment is
 # already in the tmux status bar (the same numbers would be shown twice, one line apart).
 LIMITS_MODE="${CLAUDE_STATUSLINE_LIMITS:-auto}"
@@ -147,38 +160,36 @@ show_limits() {
     never)  return 1 ;;
   esac
   [ -z "$TMUX" ] && return 0
-  # show-options takes one option per call
   ! { tmux show -g status-format; tmux show -g status-left; tmux show -g status-right; } 2>/dev/null \
     | grep -q 'vitals_claude\|vitals.sh claude\|vitals_llm\|vitals.sh llm'
 }
 
-# Line 3: same layout as tmux-vitals' segment_claude/render_provider (scripts/helpers.sh:219-255,
-# scripts/vitals.sh:257-259), minus the leading "✳ Claude" icon+label — 5h/7d usage with the
-# same warn/crit thresholds and reset countdown via ICON_RESET. Falls back to the vitals
-# no-cache placeholder ("—") when rate limits are absent from this session's payload.
 if ! show_limits; then
   :
 elif [ -n "$FIVE_HR" ] || [ -n "$SEVEN_DAY" ]; then
-  LINE3=""
+  # Line 3: 5h with progress bar
   if [ -n "$FIVE_HR" ]; then
-    COLOR5="$(level_color "$FIVE_HR")"
-    LINE3="${GRAY}5h${RESET} ${COLOR5}${FIVE_HR}%${RESET}"
+    FILLED_5H=$((FIVE_HR / 5))
+    EMPTY_5H=$((20 - FILLED_5H))
+    COLOR5="$(level_color_5h "$FIVE_HR")"
+    BAR_5H="${COLOR5}$(printf "%${FILLED_5H}s" | sed 's/ /⣿/g')${DIM}$(printf "%${EMPTY_5H}s" | sed 's/ /⣀/g')${RESET}"
+
+    LINE3="${GRAY}5h${RESET} ${BAR_5H} ${GRAY}${FIVE_HR}%${RESET}"
     if [ -n "$FIVE_HR_RESET" ]; then
       LINE3="${LINE3} ${COMMENT}${ICON_RESET} $(until_epoch "$FIVE_HR_RESET")${RESET}"
       FIVE_HR_RESET_TIME=$(date -d "@$FIVE_HR_RESET" +%H:%M 2>/dev/null)
       [ -n "$FIVE_HR_RESET_TIME" ] && LINE3="${LINE3} ${COMMENT}◷ ${FIVE_HR_RESET_TIME}${RESET}"
     fi
+    echo -e "$LINE3"
   fi
+
+  # Line 4: 7d with percentage only
   if [ -n "$SEVEN_DAY" ]; then
     COLOR7="$(level_color "$SEVEN_DAY")"
-    if [ -n "$FIVE_HR" ]; then
-      LINE3="${LINE3} ${COMMENT}·${RESET} ${GRAY}7d${RESET} ${COLOR7}${SEVEN_DAY}%${RESET}"
-    else
-      LINE3="${GRAY}7d${RESET} ${COLOR7}${SEVEN_DAY}%${RESET}"
-    fi
-    [ -n "$SEVEN_DAY_RESET" ] && LINE3="${LINE3} ${COMMENT}${ICON_RESET} $(until_epoch "$SEVEN_DAY_RESET")${RESET}"
+    LINE4="${GRAY}7d${RESET} ${COLOR7}${SEVEN_DAY}%${RESET}"
+    [ -n "$SEVEN_DAY_RESET" ] && LINE4="${LINE4} ${COMMENT}${ICON_RESET} $(until_epoch "$SEVEN_DAY_RESET")${RESET}"
+    echo -e "$LINE4"
   fi
-  echo -e "$LINE3"
 else
   echo -e "${DIM}—${RESET}"
 fi
